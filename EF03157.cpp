@@ -1,10 +1,10 @@
 #include"EF03157.h"
 
-EF03157::EF03157(int RX, int TX) : ef03157Serial(RX,TX)
+EF03157::EF03157(int RX, int TX) : _ser(RX,TX)
 {
-    ef03157Serial.begin(9600);
-    ef03157Serial.flush();
-    ef03157Serial.setTimeout(TIMEOUT);    
+    _ser.begin(9600);
+    _ser.flush();
+    _ser.setTimeout(TIMEOUT);    
 }
 
 EF03157::EF03157(int RX, int TX, String ssid, String pwd) : EF03157(RX,TX)
@@ -29,14 +29,14 @@ EF03157::EF03157(int RX, int TX, String ssid, String pwd) : EF03157(RX,TX)
 bool EF03157::confMode(byte a)
 {    
 	bool flag = false;
-	ef03157Serial.flush();   
-	ef03157Serial.print("AT+CWMODE=" + String(a) + "\r\n");     
+	_ser.flush();   
+	_ser.print("AT+CWMODE=" + String(a) + "\r\n");     
 	unsigned long start;
 	start = millis();
 	String data;
 
     while (millis()-start < TIMEOUT) {    		 
-        data += (char)ef03157Serial.read();
+        data += (char)_ser.read();
         if (data.indexOf("OK") != -1 || data.indexOf("no change") != -1)
         {
             flag = true;
@@ -74,7 +74,6 @@ bool EF03157::Initialize(String ssid, String pwd, byte mode, byte chl, byte ecn)
 			
     if (!b)
     {
-		DBG_Write_Line("Initialize: FALSE");
         return false; 
     }        
 			
@@ -94,8 +93,6 @@ bool EF03157::Initialize(String ssid, String pwd, byte mode, byte chl, byte ecn)
             break;
 	}
 		
-	DBG_Write("Initialize: ");
-	DBG_Write_Line(b ? "TRUE" : "FALSE");
 	return b;
 }
 
@@ -106,14 +103,13 @@ bool EF03157::Initialize(String ssid, String pwd, byte mode, byte chl, byte ecn)
 ***************************************************************************/
 void EF03157::Reset(void)
 {			
-	ef03157Serial.println("AT+RST");	
+	_ser.println("AT+RST");	
 
-	bool result = ef03157Serial.find("OK");	
+	bool result = _ser.find("OK");	
 		
     if(result)
     {   		
-		while(!ef03157Serial.find("[System Ready, Vendor:www.ai-thinker.com]"));
-		DBG_Write_Line("Module is ready");  		
+		while(!_ser.find("[System Ready, Vendor:www.ai-thinker.com]"));
     }
 	
 	return result;
@@ -131,28 +127,26 @@ void EF03157::Reset(void)
 bool EF03157::confJAP(String ssid , String pwd)
 {
 	//Exp: AT+CWJAP="wifi-1","12345678"	
-    ef03157Serial.print("AT+CWJAP=");
-    ef03157Serial.print("\"");     //"ssid"
-    ef03157Serial.print(ssid);
-    ef03157Serial.print("\"");
+    _ser.print("AT+CWJAP=");
+    _ser.print("\"");     //"ssid"
+    _ser.print(ssid);
+    _ser.print("\"");
 
-    ef03157Serial.print(",");
+    _ser.print(",");
 
-    ef03157Serial.print("\"");      //"pwd"
-    ef03157Serial.print(pwd);
-    ef03157Serial.println("\"");
+    _ser.print("\"");      //"pwd"
+    _ser.print(pwd);
+    _ser.println("\"");
 
 
     unsigned long start;
 	start = millis();
     while (millis() - start < CONNECTIONTIMOUT) {    
-		if(ef03157Serial.find("OK"))
+		if(_ser.find("OK"))
         {
-			DBG_Write_Line("confSAP: TRUE");
            	return true;
         }       
 	}
-	DBG_Write_Line("confJAP: FALSE");
 	return false;
 }
 
@@ -167,32 +161,30 @@ bool EF03157::confJAP(String ssid , String pwd)
 
 bool EF03157::confSAP(String ssid , String pwd , byte chl , byte ecn)
 {
-    ef03157Serial.print("AT+CWSAP=");  
-    ef03157Serial.print("\"");     //"ssid"
-    ef03157Serial.print(ssid);
-    ef03157Serial.print("\"");
+    _ser.print("AT+CWSAP=");  
+    _ser.print("\"");     //"ssid"
+    _ser.print(ssid);
+    _ser.print("\"");
 
-    ef03157Serial.print(",");
+    _ser.print(",");
 
-    ef03157Serial.print("\"");      //"pwd"
-    ef03157Serial.print(pwd);
-    ef03157Serial.print("\"");
+    _ser.print("\"");      //"pwd"
+    _ser.print(pwd);
+    _ser.print("\"");
 
-    ef03157Serial.print(",");
-    ef03157Serial.print(String(chl));
+    _ser.print(",");
+    _ser.print(String(chl));
 
-    ef03157Serial.print(",");
-    ef03157Serial.println(String(ecn));
+    _ser.print(",");
+    _ser.println(String(ecn));
 	unsigned long start;
 	start = millis();
     while (millis()-start < CONNECTIONTIMOUT) {                            
-        if(ef03157Serial.find("OK"))
+        if(_ser.find("OK"))
         {
-			DBG_Write_Line("confSAP: TRUE");
            	return true;
         }
     }
-	DBG_Write_Line("confSAP: FALSE");
 	return false;
 }
 
@@ -214,40 +206,38 @@ bool EF03157::confSAP(String ssid , String pwd , byte chl , byte ecn)
 bool EF03157::Open(String addr, int port, byte type)
 {
 	String data;
-	ef03157Serial.print("AT+CIPSTART=");
+	_ser.print("AT+CIPSTART=");
 	switch(type)
 	{
 	case 0:
-		ef03157Serial.print("\"UDP\"");	
+		_ser.print("\"UDP\"");	
 		break;
 	case 1:
-        ef03157Serial.print("\"TCP\"");
+        _ser.print("\"TCP\"");
 		break;		
 	}
-    ef03157Serial.print(",");
-    ef03157Serial.print("\"");
-    ef03157Serial.print(addr);
-    ef03157Serial.print("\"");
-    ef03157Serial.print(",");
-	ef03157Serial.println(String(port));
+    _ser.print(",");
+    _ser.print("\"");
+    _ser.print(addr);
+    _ser.print("\"");
+    _ser.print(",");
+	_ser.println(String(port));
 	
     unsigned long start;
 	start = millis();
 	while (millis()-start < TIMEOUT) 
 	{ 
-     	if(ef03157Serial.available() > 0)
+     	if(_ser.available() > 0)
      	{
-     		char a = ef03157Serial.read();
+     		char a = _ser.read();
      		data = data + a;
      	}
 		 
 		if (data.indexOf("OK")!=-1 || data.indexOf("ALREAY CONNECT")!=-1)
     	{
-			DBG_Write_Line("open: " + addr );
         	return true;
      	}
 	}
-	DBG_Write_Line("open: FALSE");
   	return false;
 }
 
@@ -263,13 +253,13 @@ bool EF03157::Open(String addr, int port, byte type)
 ***************************************************************************/
 bool EF03157::Write(String str)
 {
-    ef03157Serial.print("AT+CIPSEND=");
-    ef03157Serial.println(str.length());
+    _ser.print("AT+CIPSEND=");
+    _ser.println(str.length());
     unsigned long start;
 	start = millis();
 	bool found;
 	while (millis()-start < TIMEOUT) {                            
-		if(ef03157Serial.find(">"))
+		if(_ser.find(">"))
 		{
 			found = true;
            	break;
@@ -277,7 +267,7 @@ bool EF03157::Write(String str)
     }
 	if(found)
 	{
-		ef03157Serial.print(str);
+		_ser.print(str);
 	}
 	else
 	{
@@ -288,9 +278,9 @@ bool EF03157::Write(String str)
     String data;
     start = millis();
 	while(millis() - start < TIMEOUT) {
-    	while(ef03157Serial.available())
+    	while(_ser.available())
      	{
-     		char a = ef03157Serial.read();
+     		char a = _ser.read();
      		data=data+a;
      	}
      	if (data.indexOf("SEND OK")!=-1)
@@ -303,5 +293,5 @@ bool EF03157::Write(String str)
 
 char EF03157::ReadByte()
 {
-	return (char)ef03157Serial.read();
+	return (char)_ser.read();
 }

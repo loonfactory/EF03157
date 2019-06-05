@@ -7,27 +7,23 @@
 #define TIMEOUT 3000
 #define CONNECTIONTIMOUT 21000
 
-#define    WEP           1
-#define    WAP_PSK       2
-#define    WAP2_PSK      3
-#define    WAP_WAP2_PSK  4
+#define     OPNE            0
+#define     WEP             1
+#define     WAP_PSK         2
+#define     WAP2_PSK        3
+#define     WAP_WAP2_PSK    4
 
-#define    UDP     0
-#define    TCP     1
+#define     UDP             0
+#define     TCP             1
 
-#define    STA     1
-#define    AP      2
-#define    AP_STA  3
-
-#endif
-
-
-
+#define     STA             1
+#define     AP              2
+#define     AP_STA          3
 
 class EF03157
 {
 private:
-    SoftwareSerial ef03157Serial;
+    SoftwareSerial _ser;
 public:
 
     EF03157(int RX, int TX);
@@ -69,3 +65,5 @@ public:
 	String m_rev;
 
 };
+
+#endif
