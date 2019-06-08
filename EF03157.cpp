@@ -1,297 +1,256 @@
-#include"EF03157.h"
+#include "EF03157.h"
 
-EF03157::EF03157(int RX, int TX) : _ser(RX,TX)
-{
-    _ser.begin(9600);
-    _ser.flush();
-    _ser.setTimeout(TIMEOUT);    
+EF03157::EF03157(int8_t rx, int8_t tx) : EF03157(rx, tx, 100) {}
+EF03157::EF03157(int8_t rx, int8_t tx, int bufSize) : _ser(rx, tx) {
+	setBufferSize(bufSize);
+}
+EF03157::~EF03157(){
+	free(_buf);
 }
 
-EF03157::EF03157(int RX, int TX, String ssid, String pwd) : EF03157(RX,TX)
-{  
-    this->Initialize(ssid, pwd);
+int EF03157::readLine(){
+	return readLine(_buf, _bufSize);
 }
 
+int EF03157::readLine(char *buf, int length){	
 
-/*************************************************************************
-//configure the operation mode
-
-	a:	
-		1	-	Station
-		2	-	AP
-		3	-	AP+Station
-		
-	return:
-		true	-	successfully
-		false	-	unsuccessfully
-
-***************************************************************************/
-bool EF03157::confMode(byte a)
-{    
-	bool flag = false;
-	_ser.flush();   
-	_ser.print("AT+CWMODE=" + String(a) + "\r\n");     
-	unsigned long start;
-	start = millis();
-	String data;
-
-    while (millis()-start < TIMEOUT) {    		 
-        data += (char)_ser.read();
-        if (data.indexOf("OK") != -1 || data.indexOf("no change") != -1)
-        {
-            flag = true;
-            break;
-        }	    	  
-	}
-    return flag;
-}
-
-
-/*************************************************************************
-//Initialize port
-
-	mode:	setting operation mode
-		STA: 	Station
-		AP:	 	Access Point
-		AT_STA:	Access Point & Station
-
-	chl:	channel number
-	ecn:	encryption
-		OPEN          0
-		WEP           1
-		WAP_PSK       2
-		WAP2_PSK      3
-		WAP_WAP2_PSK  4		
-
-	return:
-		true	-	successfully
-		false	-	unsuccessfully
-
-***************************************************************************/
-bool EF03157::Initialize(String ssid, String pwd, byte mode, byte chl, byte ecn)
-{
-	bool b = confMode(mode);
-			
-    if (!b)
-    {
-        return false; 
-    }        
-			
-	Reset();
-
-    switch(b)
-    {
-        case STA:
-            b &= confJAP(ssid, pwd);
-            break;
-        case AP:
-            b &= confSAP(ssid, pwd, chl, ecn);        
-            break;
-        case AP_STA:
-            b &= confJAP(ssid, pwd);
-		    b &= confSAP(ssid, pwd, chl, ecn);
-            break;
-	}
-		
-	return b;
-}
-
-/*************************************************************************
-
-//reboot the wifi module
-
-***************************************************************************/
-void EF03157::Reset(void)
-{			
-	_ser.println("AT+RST");	
-
-	bool result = _ser.find("OK");	
-		
-    if(result)
-    {   		
-		while(!_ser.find("[System Ready, Vendor:www.ai-thinker.com]"));
-    }
+	if(buf == nullptr) return -1;
+	if(length < 0) return -1;
 	
+	int i = -1;
+
+	if(_ser.isListening() == false) 
+		_ser.listen();
+
+    unsigned long t = millis() + _timeout;	
+	do
+	{ 
+		int ch = _ser.read();
+        if(ch == -1) continue;		
+		if(ch == '\r' || ch == '\n'){
+			delay(2);
+			if(_ser.peek() == '\n') _ser.read();				
+			break;
+		}
+		buf[++i] = ch;
+
+	} while (i < length && millis() < t);	
+	
+	buf[++i] = 0;
+	return i;
+}
+
+void EF03157::write(const char *str){	
+	_ser.write(str);
+}
+/*
+void EF03157::write(const __FlashStringHelper* str){	
+	_ser.write(str);
+}
+*/
+void EF03157::writeLine(){
+	_ser.write('\r');
+	_ser.write('\n');
+}
+void EF03157::writeLine(char c){
+	_ser.write(c);
+	writeLine();
+}
+void EF03157::writeLine(String& str){	
+	_ser.write(str.c_str());
+	writeLine();
+}
+/*
+void EF03157::writeLine(const __FlashStringHelper* str){
+	_ser.write(str);
+	writeLine();
+}
+*/
+void EF03157::writeLine(const char *str){	
+	_ser.write(str);
+	writeLine();
+}
+
+bool EF03157::CWMode(int mode){
+	if(mode > 3 || mode <= 0) return false;
+	write("AT+CWMODE=");
+	writeLine(mode + '0');
+	bool result = readLine();
+	String s("Error");
+	if(result){		
+		result != s.equals(_buf);
+		readLine();
+	}
 	return result;
 }
 
-/*************************************************************************
-//configure the SSID and password of the access port
-		
-		return:
-		true	-	successfully
-		false	-	unsuccessfully
-		
-
-***************************************************************************/
-bool EF03157::confJAP(String ssid , String pwd)
-{
-	//Exp: AT+CWJAP="wifi-1","12345678"	
-    _ser.print("AT+CWJAP=");
-    _ser.print("\"");     //"ssid"
-    _ser.print(ssid);
-    _ser.print("\"");
-
-    _ser.print(",");
-
-    _ser.print("\"");      //"pwd"
-    _ser.print(pwd);
-    _ser.println("\"");
-
-
-    unsigned long start;
-	start = millis();
-    while (millis() - start < CONNECTIONTIMOUT) {    
-		if(_ser.find("OK"))
-        {
-           	return true;
-        }       
+bool EF03157::setBufferSize(int size) { return setBufferSize(size, false);  }
+bool EF03157::setBufferSize(int size, bool freeFirst){
+	bool result;
+	if(freeFirst){
+		free(_buf);
+		_buf = (char*)malloc(sizeof(char) *  size );
+		result = _buf != nullptr;
+		size = result ? size : -1;
 	}
+	else{
+		char* temp = (char*)malloc(sizeof(char) *  size );
+		free(_buf);		
+		result = temp != nullptr;
+		if(result){
+			_buf = temp;
+			_bufSize = size;			
+		} 		
+	}	
+	return result;
+}
+
+int EF03157::getBufferSize(){return _bufSize;}
+
+bool EF03157::begin(){
+	return begin(9600);	
+}
+
+bool EF03157::begin(unsigned long t){
+	_ser.begin(t);
+	_ser.setTimeout(1000);
+	while (_ser.available() != 0) _ser.read();
+
+	writeLine("AT");
+	delay(10);
+
+	if(_ser.available() > 0){
+		_echo = readLine();		
+		while (_ser.available() != 0) _ser.read();
+		return true;
+	}
+
+	return false;	
+}
+
+bool EF03157::setEcho(bool set){
+	if(_echo == set) return true;
+
+	_ser.write("ATE");
+	writeLine((set != 0) + '0');
+	String ok = "OK";
+	if(_echo){
+		readLine();
+		readLine();
+	}
+	readLine();
+	readLine();	
+	bool r = ok.equals(_buf);
+	if(r) _echo = set;
+	return r;
+}
+
+bool EF03157::getEcho(){ return _echo; }
+
+bool EF03157::reset(){
+	while (_ser.available()) _ser.read();
+	writeLine("AT+RST");		
+	delay(10);
+	if(_echo){
+		readLine();
+		readLine();
+	}
+	readLine();
+	if(readLine())
+	{		
+		while (_ser.available() == 0) ;			
+		_echo = true;
+		delay(500);
+		while (_ser.available()) _ser.read();
+		
+		return true;			
+	}		
 	return false;
 }
 
-/*************************************************************************
-//configure the parameter of ssid, password, channel, encryption in AP mode
-		
-		return:
-			true	-	successfully
-			false	-	unsuccessfully
+String EF03157::version(){
+	writeLine("AT+GMR");
+	if(_echo){
+		readLine();
+		readLine();
+	}
+	readLine(); // {version} CR LK
+	String v(_buf);
+	readLine(); // CR LF;
+	readLine(); // OK CR LF
+	return v;	
+}
 
-***************************************************************************/
+bool EF03157::AP(){
+	return CWMode(2);
+}
+bool EF03157::Station(){
+	return CWMode(1);
+}
+bool EF03157::ApStation(){
+	return CWMode(3);
+}
 
-bool EF03157::confSAP(String ssid , String pwd , byte chl , byte ecn)
-{
-    _ser.print("AT+CWSAP=");  
-    _ser.print("\"");     //"ssid"
-    _ser.print(ssid);
-    _ser.print("\"");
 
-    _ser.print(",");
-
-    _ser.print("\"");      //"pwd"
-    _ser.print(pwd);
-    _ser.print("\"");
-
-    _ser.print(",");
-    _ser.print(String(chl));
-
-    _ser.print(",");
-    _ser.println(String(ecn));
-	unsigned long start;
-	start = millis();
-    while (millis()-start < CONNECTIONTIMOUT) {                            
-        if(_ser.find("OK"))
-        {
-           	return true;
-        }
-    }
+bool EF03157::ConnectAP(String ssid, String pwd){
+	return ConnectAP(ssid.c_str(), pwd.c_str());
+}
+bool EF03157::ConnectAP(const char* ssid, const char* pwd){
+	write("AT+CWJAP=\"");
+	write(ssid);
+	write("\",\"");
+	write(pwd);
+	writeLine('\"');
+	if(_echo){
+		readLine(); 
+		readLine();
+	}
+	if(readLine()){		
+		readLine();
+		return _buf[0] == 'O' && _buf[1] == 'K';
+	}
 	return false;
 }
-
-/*************************************************************************
-//Set up tcp or udp connection	(signle connection mode)
-
-	type:	tcp or udp
-	
-	addr:	ip address
-	
-	port:	port number
+bool EF03157::Connected(){
+	write("AT+CWJAP?");
+	int retry = 0;
+	while (retry++ < 10)
+	{
+		if(readLine() == false) continue;
 		
-
-	return:
-		true	-	successfully
-		false	-	unsuccessfully
-
-***************************************************************************/
-bool EF03157::Open(String addr, int port, byte type)
-{
-	String data;
-	_ser.print("AT+CIPSTART=");
-	switch(type)
-	{
-	case 0:
-		_ser.print("\"UDP\"");	
-		break;
-	case 1:
-        _ser.print("\"TCP\"");
-		break;		
+		readLine();
+		String er = "Error";
+		if(er.equals(_buf)) return false;
+		else return true;					
 	}
-    _ser.print(",");
-    _ser.print("\"");
-    _ser.print(addr);
-    _ser.print("\"");
-    _ser.print(",");
-	_ser.println(String(port));
-	
-    unsigned long start;
-	start = millis();
-	while (millis()-start < TIMEOUT) 
-	{ 
-     	if(_ser.available() > 0)
-     	{
-     		char a = _ser.read();
-     		data = data + a;
-     	}
-		 
-		if (data.indexOf("OK")!=-1 || data.indexOf("ALREAY CONNECT")!=-1)
-    	{
-        	return true;
-     	}
+		
+}
+String EF03157::getIP(){
+	writeLine("AT+CIFSR");
+	if(_echo){
+		readLine();
+		readLine();
 	}
-  	return false;
+	readLine();
+	String ip(_buf);
+	readLine();
+	readLine();
+
+	return ip;
 }
 
-/*************************************************************************
-//send data in sigle connection mode
-
-	str:	string of message
-
-	return:
-		true	-	successfully
-		false	-	unsuccessfully
-
-***************************************************************************/
-bool EF03157::Write(String str)
-{
-    _ser.print("AT+CIPSEND=");
-    _ser.println(str.length());
-    unsigned long start;
-	start = millis();
-	bool found;
-	while (millis()-start < TIMEOUT) {                            
-		if(_ser.find(">"))
-		{
-			found = true;
-           	break;
-        }
-    }
-	if(found)
-	{
-		_ser.print(str);
+bool EF03157::MultConnection(int mux){
+	if(mux < 0) return false;
+	if(mux > 4) return false; // up to 4
+	bool result = false;
+	write("AT+CIPMUX=");
+	writeLine(mux + '0');	
+	if(readLine()){
+		readLine();
+		return _buf[0] == 'O' && _buf[1] == 'K';
 	}
-	else
-	{
-		closeMux();
-		return false;
-	}
-
-    String data;
-    start = millis();
-	while(millis() - start < TIMEOUT) {
-    	while(_ser.available())
-     	{
-     		char a = _ser.read();
-     		data=data+a;
-     	}
-     	if (data.indexOf("SEND OK")!=-1)
-     	{
-         	return true;
-     	}
-  	}
-  	return false;
+	return result;
 }
 
-char EF03157::ReadByte()
-{
-	return (char)_ser.read();
-}
+
+#undef CLEAR
