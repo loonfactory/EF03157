@@ -10,15 +10,18 @@ class EF03157
 private:
     SoftwareSerial _ser;
 
+    bool _isServer;
+    int8_t _mux;
     bool _echo = true;
     char* _buf;
     int _bufSize;
     unsigned long _timeout = 1000;
 
     void write(const char * str);
+    void write(String str);
     //void write(const __FlashStringHelper* str);
     void writeLine();
-    void writeLine(char c);
+    void writeLine(char c);    
     void writeLine(const char *str);
     //void writeLine(const __FlashStringHelper* str);
     void writeLine(String& str);
@@ -28,6 +31,8 @@ private:
 
     // 1 = Station, 2 = AP, 3 = Station + AP
     bool CWMode(int mode);
+    bool setServer(bool mode);  
+    bool setServer(bool mode,int port);
 
 public:
     EF03157(int8_t rx, int8_t tx, int bufSize);
@@ -42,14 +47,18 @@ public:
     bool setBufferSize(int size, bool freeFirst);
     int getBufferSize();
 
-    bool setEcho(bool set);
+    
+    bool echoOn();
+    bool echoOff();
+    bool setEcho(bool set);    
     bool getEcho();
+
     bool reset();
     String version();
 
-    bool AP();
-    bool Station();
-    bool ApStation();
+    bool setAP();
+    bool setStation();
+    bool setApStation();
 
     bool ConnectAP(String ssid, String pwd);
     bool ConnectAP(const char* ssid, const char* pwd);
@@ -57,11 +66,9 @@ public:
 
     String getIP();
 
-    bool MultConnection(int mux);    
+    bool MultConnection(int mux);
+    bool serverInit();
+    bool serverInit(int port);
 
 }; 
-
-#undef STATION
-#undef AP
-
 #endif

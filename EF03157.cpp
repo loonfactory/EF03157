@@ -43,6 +43,9 @@ int EF03157::readLine(char *buf, int length){
 void EF03157::write(const char *str){	
 	_ser.write(str);
 }
+void EF03157::write(String str){
+	_ser.write(str.c_str());
+}
 /*
 void EF03157::write(const __FlashStringHelper* str){	
 	_ser.write(str);
@@ -82,6 +85,22 @@ bool EF03157::CWMode(int mode){
 		readLine();
 	}
 	return result;
+}
+bool EF03157::setServer(bool mode){
+	write("AT+CIPSERVER=");
+	writeLine((mode != 0) + '0');
+	readLine();
+	readLine();
+	return  _buf[0] == 'O' && _buf[1] == 'K';
+}
+bool EF03157::setServer(bool mode, int port){
+	_ser.write("AT+CIPSERVER=");
+	_ser.write((mode != 0) + '0');
+	_ser.write(',');
+	_ser.write(String(port).c_str());
+	readLine();
+	readLine();
+	return  _buf[0] == 'O' && _buf[1] == 'K';
 }
 
 bool EF03157::setBufferSize(int size) { return setBufferSize(size, false);  }
@@ -127,6 +146,9 @@ bool EF03157::begin(unsigned long t){
 
 	return false;	
 }
+
+bool EF03157::echoOn() {  return setEcho(true); }
+bool EF03157::echoOff() { return setEcho(false); }
 
 bool EF03157::setEcho(bool set){
 	if(_echo == set) return true;
@@ -181,17 +203,15 @@ String EF03157::version(){
 	return v;	
 }
 
-bool EF03157::AP(){
+bool EF03157::setAP(){
 	return CWMode(2);
 }
-bool EF03157::Station(){
+bool EF03157::setStation(){
 	return CWMode(1);
 }
-bool EF03157::ApStation(){
+bool EF03157::setApStation(){
 	return CWMode(3);
 }
-
-
 bool EF03157::ConnectAP(String ssid, String pwd){
 	return ConnectAP(ssid.c_str(), pwd.c_str());
 }
@@ -241,16 +261,22 @@ String EF03157::getIP(){
 
 bool EF03157::MultConnection(int mux){
 	if(mux < 0) return false;
-	if(mux > 4) return false; // up to 4
+	if(mux > 4) return false; // up to 4	
 	bool result = false;
 	write("AT+CIPMUX=");
 	writeLine(mux + '0');	
 	if(readLine()){
 		readLine();
-		return _buf[0] == 'O' && _buf[1] == 'K';
+		result = _buf[0] == 'O' && _buf[1] == 'K';	
+		if(result) _mux = mux;
 	}
 	return result;
 }
-
-
-#undef CLEAR
+bool EF03157::serverInit(){
+	if(_mux < 1) MultConnection(1);		
+	return setServer(1);
+}
+bool EF03157::serverInit(int port){
+	if(_mux < 1) MultConnection(1);	
+	return setServer(1, port);
+}
