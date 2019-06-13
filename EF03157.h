@@ -21,12 +21,12 @@ private:
     void write(String str);
     //void write(const __FlashStringHelper* str);
     void writeLine();
-    void writeLine(char c);    
+    void writeLine(int n);
+    void writeLine(char c);
     void writeLine(const char *str);
     //void writeLine(const __FlashStringHelper* str);
     void writeLine(String& str);
     int readLine();
-    int readLine(char* buf, int length);
     int Comparable(const char *left, const char *right);
 
     // 1 = Station, 2 = AP, 3 = Station + AP
@@ -69,6 +69,9 @@ public:
     bool MultConnection(int mux);
     bool serverInit();
     bool serverInit(int port);
+    bool setServerTimeout(int sec);
+    unsigned long getServerTimeout();
 
+    int readLine(char* buf, int length);
 }; 
 #endif

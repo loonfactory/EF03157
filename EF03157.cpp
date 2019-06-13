@@ -55,6 +55,10 @@ void EF03157::writeLine(){
 	_ser.write('\r');
 	_ser.write('\n');
 }
+void EF03157::writeLine(int n){
+	_ser.write(String(n).c_str());
+	writeLine();
+}
 void EF03157::writeLine(char c){
 	_ser.write(c);
 	writeLine();
@@ -154,7 +158,7 @@ bool EF03157::setEcho(bool set){
 	if(_echo == set) return true;
 
 	_ser.write("ATE");
-	writeLine((set != 0) + '0');
+	writeLine((char)((set != 0) + '0'));
 	String ok = "OK";
 	if(_echo){
 		readLine();
@@ -279,4 +283,28 @@ bool EF03157::serverInit(){
 bool EF03157::serverInit(int port){
 	if(_mux < 1) MultConnection(1);	
 	return setServer(1, port);
+}
+bool EF03157::setServerTimeout(int sec){
+	_ser.write("AT+CIPSTO=");
+	writeLine(sec);
+
+	if(_echo){
+		readLine();
+		readLine();
+	}
+	readLine();
+	readLine();
+	return _buf[0] == 'O' && _buf[1] == 'K';
+}
+
+unsigned long EF03157::getServerTimeout(){
+	_ser.write("AT+CIPSTO?");
+	readLine();
+	String t(_buf + 8);
+	readLine();	
+	
+	SREG |= 0x01;
+	digitalWrite(1, OUTPUT);
+
+	return t.toInt();
 }
